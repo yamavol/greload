@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/yamavol/greload"
+	greload "github.com/yamavol/greload/lib"
 	"github.com/yamavol/greload/test/harness"
 )
 
