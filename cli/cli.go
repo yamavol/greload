@@ -19,6 +19,8 @@ const (
 	flagExclude = "exclude"
 	flagHelp    = "help"
 	flagVersion = "version"
+
+	Version = "0.1.1"
 )
 
 var Options = []argp.Option{
@@ -54,7 +56,7 @@ func Run() {
 	}
 
 	if result.HasOpt(flagVersion) {
-		fmt.Printf("greload 0.0.0\n")
+		fmt.Printf("greload %s\n", Version)
 		return
 	}
 
