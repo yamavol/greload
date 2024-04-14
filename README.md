@@ -1,7 +1,7 @@
 
 # greload
 
-greload is a reverse-proxy for HTML live-reloading. The program intercepts your http request and injects a script to the HTML response. When local files is modified, the page automatically reloads.
+greload is a reverse-proxy for HTML live-reloading. The program intercepts your http request and injects a script in the HTML response. When local files are modified, the page automatically reloads.
 
 ## usage
 
