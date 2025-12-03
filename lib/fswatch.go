@@ -53,7 +53,8 @@ func excludeSubdir(dirs []string, exclude []string) []string {
 	return filtered
 }
 
-func WatchStart(watch []string, exclude []string) {
+// Start filesystem watcher.
+func WatchStart(watch []string, exclude []string, srv *ProxyServer) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Error(err)
@@ -66,11 +67,12 @@ func WatchStart(watch []string, exclude []string) {
 			select {
 			case event, ok := <-watcher.Events:
 				if !ok {
+					log.Error(ok)
 					return
 				}
 				log.Debug("[fs]", "event", event)
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					broadcastReload()
+					srv.TriggerReload()
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {

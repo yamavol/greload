@@ -112,8 +112,11 @@ func Run() {
 		watch = append(watch, ".")
 	}
 
-	go lib.WatchStart(watch, exclude)
-	lib.ServerStart(serverOptions)
+	proxyServer := lib.NewServer(serverOptions)
+
+	go lib.WatchStart(watch, exclude, proxyServer)
+
+	proxyServer.Start()
 }
 
 func printHelp() {

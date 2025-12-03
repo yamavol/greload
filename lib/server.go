@@ -11,6 +11,7 @@ import (
 	"os/signal"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mattn/go-ieproxy"
@@ -102,15 +103,32 @@ func parseHost(h string) (*url.URL, error) {
 }
 
 // ============================================================
-// Server Methods
+// HTTP & Websocket server Methods
 // ============================================================
 
-// Start a HTTP & WebSocket server
-func ServerStart(option *ServerOptions) {
+// ProxyServer is the libary's main server that handles both HTTP proxying
+// and WebSocket connections.
+type ProxyServer struct {
+	options     ServerOptions
+	connections map[*websocket.Conn]struct{}
+	lock        sync.Mutex
+	reloadReq   notifier
+}
 
+// Create a new instance of ProxyServer
+func NewServer(options *ServerOptions) *ProxyServer {
+	return &ProxyServer{
+		options:     *options,
+		connections: make(map[*websocket.Conn]struct{}),
+		reloadReq:   *newNotifier(),
+	}
+}
+
+// Start HTTP & WebSocket server, and listen to file change events
+func (srv *ProxyServer) Start() {
 	server := http.Server{
-		Addr:    fmt.Sprintf("127.0.0.1:%v", option.Port),
-		Handler: http.HandlerFunc(serverHandler(option)),
+		Addr:    fmt.Sprintf("127.0.0.1:%v", srv.options.Port),
+		Handler: http.HandlerFunc(serverHandler(srv)),
 	}
 
 	interrupt := make(chan os.Signal, 1)
@@ -123,19 +141,30 @@ func ServerStart(option *ServerOptions) {
 		server.Shutdown(ctx)
 	}()
 
-	log.Info("reload server is running on port", option.Port)
-	log.Info("redirecting access to", option.Host.String())
+	go func() {
+		for range srv.reloadReq.ch {
+			srv.handleReload()
+		}
+	}()
+
+	log.Info("reload server is running on port", srv.options.Port)
+	log.Info("redirecting access to", srv.options.Host.String())
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Error("Error:", err)
 	}
 }
 
-func serverHandler(option *ServerOptions) func(w http.ResponseWriter, r *http.Request) {
+// Sends reload request to the connected websocket clients.
+func (srv *ProxyServer) TriggerReload() {
+	srv.reloadReq.Notify()
+}
+
+func serverHandler(srv *ProxyServer) func(w http.ResponseWriter, r *http.Request) {
 
 	// reverse proxy server config
 	rp := &httputil.ReverseProxy{}
 
-	rp.ModifyResponse = responseModifier(option.Port)
+	rp.ModifyResponse = responseModifier(srv.options.Port)
 	rp.Transport = &http.Transport{
 		// use http_proxy (env) if set, otherwise use system proxy
 		Proxy:             ieproxy.GetProxyFunc(),
@@ -143,11 +172,13 @@ func serverHandler(option *ServerOptions) func(w http.ResponseWriter, r *http.Re
 	}
 	rp.Rewrite = func(pr *httputil.ProxyRequest) {
 		pr.SetXForwarded()
-		pr.SetURL(option.Host)
+		pr.SetURL(srv.options.Host)
 	}
 
 	// websocket server config
-	ws := websocket.Handler(websockHandler)
+	ws := websocket.Handler(func(conn *websocket.Conn) {
+		srv.websockHandler(conn)
+	})
 
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Header.Get("Upgrade") == "websocket" {
@@ -158,34 +189,59 @@ func serverHandler(option *ServerOptions) func(w http.ResponseWriter, r *http.Re
 	}
 }
 
-// ======================================================================
-// WebSocket Server related
-// ======================================================================
+func (ws *ProxyServer) websockHandler(conn *websocket.Conn) {
+	defer conn.Close()
 
-var connections = make(map[*websocket.Conn]struct{})
+	ws.lock.Lock()
+	ws.connections[conn] = struct{}{}
+	ws.lock.Unlock()
 
-func websockHandler(ws *websocket.Conn) {
-	defer ws.Close()
-	connections[ws] = struct{}{}
 	log.Debug("[ws] Client connected")
 
 	var msg string
 	for {
-		err := websocket.Message.Receive(ws, &msg)
+		err := websocket.Message.Receive(conn, &msg)
 		if err != nil {
-			delete(connections, ws)
+			ws.lock.Lock()
+			delete(ws.connections, conn)
+			ws.lock.Unlock()
 			log.Debug("[ws] Client disconnected")
 			break
 		}
 	}
 }
 
-func broadcastReload() {
-	for conn := range connections {
+func (srv *ProxyServer) handleReload() {
+	srv.lock.Lock()
+	for conn := range srv.connections {
 		err := websocket.Message.Send(conn, "reload")
 		if err != nil {
-			delete(connections, conn)
+			delete(srv.connections, conn)
 			log.Errorf("Error broadcasting message to client: %v", err)
 		}
+	}
+	srv.lock.Unlock()
+}
+
+// ======================================================================
+// notifier (Private)
+// ======================================================================
+type notifier struct {
+	ch chan struct{}
+}
+
+func newNotifier() *notifier {
+	return &notifier{
+		// create buffered channel of size 1
+		// notify call is always unblocking.
+		ch: make(chan struct{}, 1),
+	}
+}
+
+// signals channel or
+func (n *notifier) Notify() {
+	select {
+	case n.ch <- struct{}{}:
+	default:
 	}
 }
