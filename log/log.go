@@ -77,6 +77,6 @@ func DebugSecuref(format string, args ...interface{}) {
 		for _, mask := range maskPatterns {
 			s = strings.Replace(s, mask, "***", -1)
 		}
-		Debugf(s)
+		Debugf("%s", s)
 	}
 }

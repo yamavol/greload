@@ -31,6 +31,6 @@ func main() {
 
 	fmt.Println("http server is running on port", serverPort)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		slog.Error("Error:", err)
+		slog.Error("Error:", "err", err)
 	}
 }
