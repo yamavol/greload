@@ -58,6 +58,7 @@ func WatchStart(watch []string, exclude []string, srv *ProxyServer) {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
 		log.Error(err)
+		return
 	}
 	defer watcher.Close()
 
@@ -91,11 +92,12 @@ func WatchStart(watch []string, exclude []string, srv *ProxyServer) {
 	excludeList, err := listSubdir(exclude...)
 	if err != nil {
 		log.Error(err)
+		return
 	}
 	watchList := excludeSubdir(dirList, excludeList)
-
 	if err != nil {
 		log.Error(err)
+		return
 	}
 
 	for _, dir := range watchList {
