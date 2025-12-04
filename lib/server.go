@@ -26,7 +26,7 @@ import (
 type ProxyServer struct {
 	options     ServerOptions
 	connections map[*websocket.Conn]struct{}
-	lock        sync.Mutex
+	mu          sync.Mutex
 	reloadReq   notifier
 }
 
@@ -107,9 +107,9 @@ func serverHandler(srv *ProxyServer) func(w http.ResponseWriter, r *http.Request
 func (ws *ProxyServer) websockHandler(conn *websocket.Conn) {
 	defer conn.Close()
 
-	ws.lock.Lock()
+	ws.mu.Lock()
 	ws.connections[conn] = struct{}{}
-	ws.lock.Unlock()
+	ws.mu.Unlock()
 
 	log.Debug("[ws] Client connected")
 
@@ -117,9 +117,9 @@ func (ws *ProxyServer) websockHandler(conn *websocket.Conn) {
 	for {
 		err := websocket.Message.Receive(conn, &msg)
 		if err != nil {
-			ws.lock.Lock()
+			ws.mu.Lock()
 			delete(ws.connections, conn)
-			ws.lock.Unlock()
+			ws.mu.Unlock()
 			log.Debug("[ws] Client disconnected")
 			break
 		}
@@ -127,7 +127,8 @@ func (ws *ProxyServer) websockHandler(conn *websocket.Conn) {
 }
 
 func (srv *ProxyServer) handleReload() {
-	srv.lock.Lock()
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
 	for conn := range srv.connections {
 		err := websocket.Message.Send(conn, "reload")
 		if err != nil {
@@ -135,7 +136,6 @@ func (srv *ProxyServer) handleReload() {
 			log.Errorf("Error broadcasting message to client: %v", err)
 		}
 	}
-	srv.lock.Unlock()
 }
 
 // ============================================================
