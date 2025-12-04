@@ -1,4 +1,4 @@
-package lib_test
+package internal_test
 
 import (
 	"io"
@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	greload "github.com/yamavol/greload/lib"
+	"github.com/yamavol/greload/lib/internal"
 	"github.com/yamavol/greload/test/harness"
 )
 
@@ -19,7 +19,7 @@ func Test_Middleware(t *testing.T) {
 	w := httptest.NewRecorder()
 
 	h := http.HandlerFunc(htmlHandler)
-	r := greload.WithReload(h)
+	r := internal.WithReload(h)
 	r.ServeHTTP(w, req)
 
 	resp := w.Result()
@@ -49,5 +49,5 @@ func Test_DetectContentType(t *testing.T) {
 // dummy handlers
 // ==================================================
 func htmlHandler(w http.ResponseWriter, r *http.Request) {
-	greload.WriteHtml(w, r, []byte("<html><body><h1>Hello!</h1></body></html>"))
+	internal.WriteHtml(w, r, []byte("<html><body><h1>Hello!</h1></body></html>"))
 }

@@ -1,4 +1,4 @@
-package lib
+package internal
 
 import (
 	"bytes"
@@ -17,9 +17,8 @@ var injectHtml = "\n<script>\n" + reloadCode + "\n</script>\n"
 const keyContentType = "Content-Type"
 const keyContentLength = "Content-Length"
 
-// InjectReload is a responseModifier function for ReverseProxy.ModifyResponse
-// which injects reload script into HTML response.
-func responseModifier(wsport int) func(*http.Response) error {
+// For ReverseProxy.ModifyResponse. Injects reload script in HTML response.
+func ResponseModifier(wsport int) func(*http.Response) error {
 
 	var scriptHtml = []byte(strings.ReplaceAll(injectHtml, "9765", strconv.Itoa(wsport)))
 
