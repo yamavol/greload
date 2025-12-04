@@ -48,6 +48,7 @@ func (srv *ProxyServer) Start() {
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
+	debounced, _ := internal.NewDebouncer(100 * time.Millisecond)
 
 	go func() {
 		<-interrupt
@@ -58,7 +59,7 @@ func (srv *ProxyServer) Start() {
 
 	go func() {
 		for range srv.reloadReq.ch {
-			srv.handleReload()
+			debounced(srv.handleReload)
 		}
 	}()
 
