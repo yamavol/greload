@@ -21,6 +21,8 @@ import (
 	"golang.org/x/net/websocket"
 )
 
+const defaultDebounceDuration = 100 * time.Millisecond
+
 // ProxyServer is the libary's main server that handles both HTTP proxying
 // and WebSocket connections.
 type ProxyServer struct {
@@ -48,7 +50,7 @@ func (srv *ProxyServer) Start() {
 
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
-	debounced, _ := internal.NewDebouncer(100 * time.Millisecond)
+	debounced, _ := internal.NewDebouncer(defaultDebounceDuration)
 
 	go func() {
 		<-interrupt
