@@ -1,8 +1,8 @@
 package lib
+
 // ============================================================
 // Server Options
 // ============================================================
-
 
 import (
 	"errors"
@@ -10,12 +10,14 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 )
 
-
 type ServerOptions struct {
-	Port int
-	Host *url.URL
+	Port  int
+	Host  *url.URL
+	Delay time.Duration
+	Cmd   string
 }
 
 var hasSchemeRe = regexp.MustCompile(`^\s*[0-9A-Za-z.\-\+]+://`)
@@ -34,7 +36,6 @@ func (s *ServerOptions) SetForwardHost(h string) error {
 	if err != nil {
 		return err
 	}
-
 	s.Host = u
 	return nil
 }
@@ -45,6 +46,11 @@ func (s *ServerOptions) SetPort(port int) error {
 	}
 
 	s.Port = port
+	return nil
+}
+
+func (s *ServerOptions) SetDelay(delayMs int) error {
+	s.Delay = time.Duration(max(0, delayMs)) * time.Millisecond
 	return nil
 }
 

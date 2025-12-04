@@ -15,8 +15,10 @@ const (
 	flagPort    = "port"
 	flagVerbose = "verbose"
 	flagLevel   = "level"
+	flagDelay   = "delay"
 	flagWatch   = "watch"
 	flagExclude = "exclude"
+	flagCmd     = "cmd"
 	flagHelp    = "help"
 	flagVersion = "version"
 
@@ -27,6 +29,8 @@ var Options = []argp.Option{
 	{Short: 'p', Long: flagPort, ArgName: "<port>", Doc: "greload port (http + websocket)"},
 	{Short: 'w', Long: flagWatch, ArgName: "<path>", Doc: "add path to watch list"},
 	{Short: 'x', Long: flagExclude, ArgName: "<path>", Doc: "add path to ignore list"},
+	{Short: 'd', Long: flagDelay, ArgName: "<ms>", Doc: "time delay (ms) before reloading"},
+	{Short: 'c', Long: flagCmd, ArgName: "<string>", Doc: "command to execute on change"},
 	{Short: 'v', Long: flagVerbose, Flags: argp.OPTION_HIDDEN, Doc: "enable verbose mode"},
 	{Short: 'h', Long: flagHelp, Flags: argp.OPTION_HIDDEN, Doc: "print help and exit"},
 	{Short: 'V', Long: flagVersion, Flags: argp.OPTION_HIDDEN, Doc: "print version and exit"},
@@ -38,6 +42,12 @@ func Run() {
 	port := lib.DefaultPort
 	watch := []string{}
 	exclude := []string{}
+	delay := 0
+	cmd := ""
+
+	// ==============================
+	// parse command line arguments
+	// ==============================
 
 	result, err := argp.Parse(Options)
 
@@ -68,6 +78,7 @@ func Run() {
 		host = result.Args[0]
 	}
 
+	// options
 	if result.HasOpt(flagPort) {
 		p, err := strconv.Atoi(result.GetOpt(flagPort).Optarg)
 		if err != nil {
@@ -80,6 +91,21 @@ func Run() {
 		}
 		port = p
 	}
+
+	if result.HasOpt(flagDelay) {
+		d, err := strconv.Atoi(result.GetOpt(flagDelay).Optarg)
+		if err != nil {
+			log.Errorf("invalid delay value: %s\n", err)
+			return
+		}
+		delay = max(0, d)
+	}
+
+	if result.HasOpt(flagCmd) {
+		cmd = result.GetOpt(flagCmd).Optarg
+	}
+
+	// multipe options
 	for _, opt := range result.Options {
 		switch opt.Long {
 		case flagWatch:
@@ -94,13 +120,19 @@ func Run() {
 	// server options
 	// ==============================
 	serverOptions := lib.NewServerOption()
+	serverOptions.Cmd = cmd
+
 	if err = serverOptions.SetForwardHost(host); err != nil {
-		log.Error(err, "\n")
+		log.Error(err)
 		return
 	}
 
-	err = serverOptions.SetPort(port)
-	if err != nil {
+	if err = serverOptions.SetPort(port); err != nil {
+		log.Error(err)
+		return
+	}
+
+	if err = serverOptions.SetDelay(delay); err != nil {
 		log.Error(err)
 		return
 	}

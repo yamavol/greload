@@ -128,6 +128,31 @@ func (ws *ProxyServer) websockHandler(conn *websocket.Conn) {
 }
 
 func (srv *ProxyServer) handleReload() {
+	var wg sync.WaitGroup
+
+	if srv.options.Cmd != "" {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			log.Debugf("[cmd] exec: %s", srv.options.Cmd)
+			if err := internal.ExecuteCommand(srv.options.Cmd); err != nil {
+				log.Errorf("[cmd] Error: %v", err)
+			}
+		}()
+	}
+
+	if srv.options.Delay > 0 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			time.Sleep(srv.options.Delay)
+		}()
+	}
+
+	// Wait all goroutines to end
+	wg.Wait()
+
+	// Send message to all connected clients
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	for conn := range srv.connections {
