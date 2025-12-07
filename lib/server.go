@@ -143,11 +143,13 @@ func (srv *ProxyServer) handleReload() {
 		}()
 	}
 
-	if srv.options.Delay > 0 {
+	delayTime := srv.adjustedDelayTime()
+
+	if delayTime > 0 {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			time.Sleep(srv.options.Delay)
+			time.Sleep(delayTime)
 		}()
 	}
 
@@ -164,6 +166,10 @@ func (srv *ProxyServer) handleReload() {
 			log.Errorf("Error broadcasting message to client: %v", err)
 		}
 	}
+}
+
+func (srv *ProxyServer) adjustedDelayTime() time.Duration {
+	return max(0, srv.options.Delay-defaultDebounceDuration)
 }
 
 // ============================================================
