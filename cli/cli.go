@@ -22,7 +22,7 @@ const (
 	flagHelp    = "help"
 	flagVersion = "version"
 
-	Version = "0.1.2"
+	Version = "0.2.0"
 )
 
 var Options = []argp.Option{
